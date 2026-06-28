@@ -5,7 +5,7 @@
     --bg: #070a13;
     --panel: #0f1424;
     --panel-brighter: #1a2038;
-    --accent: #00f2fe; /* Cyan brillante */
+    --accent: #00f2fe; 
     --gold: #f59e0b;
     --text: #f1f5f9;
     --text-dim: #64748b;
@@ -302,7 +302,6 @@ footer {
     border-bottom: 1px solid rgba(255,255,255,0.02);
 }
 
-/* ASIGNACIÓN DE COLORES EXCLUSIVOS */
 .rarity-common span { color: var(--common); }
 .rarity-rare span { color: var(--rare); font-weight: bold; }
 .rarity-epic span { color: var(--epic); font-weight: bold; }
