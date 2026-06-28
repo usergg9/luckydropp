@@ -1,0 +1,440 @@
+/* ==========================================================================
+   VARIABLES Y CONFIGURACIÓN GENERAL
+   ========================================================================== */
+:root {
+    --bg-color: #0f172a;
+    --card-bg: #1e293b;
+    --primary: #fbbf24; /* Amarillo de los intentos */
+    --primary-dim: #78350f;
+    --text: #f8fafc;
+    --text-muted: #94a3b8;
+    
+    /* Colores de rarezas */
+    --common: #cbd5e1;
+    --rare: #3b82f6;
+    --epic: #a855f7;
+    --legendary: #f59e0b;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+}
+
+/* ==========================================================================
+   HEADER / CABECERA
+   ========================================================================== */
+header {
+    width: 100%;
+    max-width: 600px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #334155;
+}
+
+.logo {
+    font-size: 1.8rem;
+    font-weight: 800;
+    background: linear-gradient(to right, #fbbf24, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* Botones circulares */
+.circle-btn, .circle-counter {
+    width: 50px;
+    height: 50px;
+    background-color: var(--card-bg);
+    border: 2px solid #334155;
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.circle-btn:hover, .circle-counter:hover {
+    transform: scale(1.05);
+    border-color: var(--primary);
+}
+
+.profile-circle img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.header-right {
+    display: flex;
+    gap: 10px;
+}
+
+.circle-counter span {
+    font-size: 0.9rem;
+    font-weight: bold;
+    color: var(--primary);
+}
+
+.circle-counter small {
+    font-size: 0.55rem;
+    color: var(--text-muted);
+    line-height: 1;
+}
+
+.rare-counter span {
+    color: var(--legendary);
+}
+
+/* ==========================================================================
+   CONTENEDOR DEL JUEGO (RASCA)
+   ========================================================================== */
+.game-container {
+    flex: 1;
+    width: 100%;
+    max-width: 500px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 25px;
+}
+
+/* Intentos (Círculos Amarillos) */
+.attempts-container {
+    display: flex;
+    gap: 15px;
+}
+
+.attempt-circle {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--primary-dim);
+    border: 2px solid #334155;
+    transition: background-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.attempt-circle.active {
+    background-color: var(--primary);
+    box-shadow: 0 0 10px var(--primary);
+}
+
+/* El recuadro del Rasca */
+.scratch-card-wrapper {
+    position: relative;
+    width: 320px;
+    height: 200px;
+    background-color: #020617;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px -5px rgba(0,0,0,0.5);
+    border: 3px solid #334155;
+}
+
+/* El premio oculto detrás */
+.secret-prize-content {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 1;
+    background: radial-gradient(circle, #1e293b 0%, #0f172a 100%);
+    user-select: none;
+    text-align: center;
+    padding: 10px;
+}
+
+.prize-rarity {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.prize-name {
+    font-size: 1.4rem;
+    color: var(--text);
+}
+
+/* El lienzo de rascar de encima */
+#scratch-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 2;
+    cursor: pointer;
+    touch-action: none; /* Crucial para que el móvil no haga scroll al rascar */
+}
+
+/* Botones de acción */
+.actions-container {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+button {
+    background: linear-gradient(to right, #fbbf24, #d97706);
+    color: #000;
+    border: none;
+    padding: 12px 35px;
+    font-size: 1.1rem;
+    font-weight: 700;
+    border-radius: 30px;
+    cursor: pointer;
+    transition: transform 0.1s ease, opacity 0.2s ease;
+    box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+button:disabled {
+    background: #334155;
+    color: #64748b;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* ==========================================================================
+   ESTADÍSTICAS Y TABLAS (ABAJO)
+   ========================================================================== */
+footer {
+    width: 100%;
+    max-width: 600px;
+    padding: 25px 20px;
+    margin-top: auto;
+    border-top: 1px solid #334155;
+}
+
+.stats-section h3 {
+    font-size: 1rem;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-align: center;
+}
+
+.stats-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.stats-table th, .stats-table td {
+    padding: 8px 12px;
+    text-align: left;
+}
+
+.stats-table th {
+    color: var(--text-muted);
+    border-bottom: 1px solid #334155;
+}
+
+.stats-table tr:not(:last-child) td {
+    border-bottom: 1px solid #1e293b;
+}
+
+/* Colores de texto de rareza */
+.rarity-common { color: var(--common); }
+.rarity-rare { color: var(--rare); font-weight: 600; }
+.rarity-epic { color: var(--epic); font-weight: 600; }
+.rarity-legendary { color: var(--legendary); font-weight: 700; animation: pulse 1.5s infinite; }
+
+/* ==========================================================================
+   MODALES (VENTANAS EMERGENTES)
+   ========================================================================== */
+.modal {
+    display: none; /* Oculto por defecto */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(2, 6, 23, 0.85);
+    backdrop-filter: blur(5px);
+    z-index: 10;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+}
+
+.modal-content {
+    background-color: var(--card-bg);
+    border: 2px solid #334155;
+    width: 100%;
+    max-width: 450px;
+    border-radius: 16px;
+    padding: 25px;
+    position: relative;
+    max-height: 85vh;
+    overflow-y: auto;
+}
+
+.close-btn, .close-sub-btn, .close-auth-form-btn, .close-prizes-today-btn, .close-legendary-btn {
+    position: absolute;
+    top: 15px;
+    right: 20px;
+    font-size: 1.8rem;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.close-btn:hover { color: var(--text); }
+
+.modal h2 {
+    margin-bottom: 20px;
+    font-size: 1.4rem;
+    border-bottom: 1px solid #334155;
+    padding-bottom: 10px;
+}
+
+.profile-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.profile-section {
+    background-color: #0f172a;
+    padding: 15px;
+    border-radius: 8px;
+    border: 1px solid #1e293b;
+}
+
+.profile-section h3 {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+}
+
+/* Grillas y Listas de los modales */
+.avatar-selection-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-top: 15px;
+}
+
+.avatar-option {
+    background-color: #0f172a;
+    border: 2px solid #1e293b;
+    border-radius: 10px;
+    padding: 8px 5px;
+    text-align: center;
+    font-size: 1.6rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.avatar-option:hover, .avatar-option.selected {
+    border-color: var(--primary);
+    background-color: #1e293b;
+}
+
+.avatar-option small {
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    display: block;
+    margin-top: 4px;
+}
+
+.prizes-grid {
+    max-height: 150px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.prize-item {
+    background: #1e293b;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+}
+
+.live-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.live-list li {
+    background: #0f172a;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    border-left: 4px solid var(--primary);
+}
+
+/* Formularios */
+.form-group {
+    margin-bottom: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.form-group label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.form-group input {
+    background-color: #0f172a;
+    border: 1px solid #334155;
+    color: #fff;
+    padding: 10px;
+    border-radius: 6px;
+    font-size: 1rem;
+}
+
+.form-group input:focus {
+    outline: none;
+    border-color: var(--primary);
+}
+
+#auth-form button {
+    width: 100%;
+    margin-top: 10px;
+}
+
+/* Utilidades */
+.hidden { display: none !important; }
+.sub-modal { z-index: 15; }
+.empty-msg { font-size: 0.85rem; color: var(--text-muted); text-align: center; }
+
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
