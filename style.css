@@ -1,15 +1,10 @@
-/* ==========================================================================
-   VARIABLES Y CONFIGURACIÓN GENERAL
-   ========================================================================== */
 :root {
     --bg-color: #0f172a;
     --card-bg: #1e293b;
-    --primary: #fbbf24; /* Amarillo de los intentos */
+    --primary: #fbbf24; 
     --primary-dim: #78350f;
     --text: #f8fafc;
     --text-muted: #94a3b8;
-    
-    /* Colores de rarezas */
     --common: #cbd5e1;
     --rare: #3b82f6;
     --epic: #a855f7;
@@ -33,9 +28,6 @@ body {
     overflow-x: hidden;
 }
 
-/* ==========================================================================
-   HEADER / CABECERA
-   ========================================================================== */
 header {
     width: 100%;
     max-width: 600px;
@@ -54,7 +46,6 @@ header {
     -webkit-text-fill-color: transparent;
 }
 
-/* Botones circulares */
 .circle-btn, .circle-counter {
     width: 50px;
     height: 50px;
@@ -70,16 +61,13 @@ header {
     text-align: center;
 }
 
+.profile-circle {
+    font-size: 1.5rem;
+}
+
 .circle-btn:hover, .circle-counter:hover {
     transform: scale(1.05);
     border-color: var(--primary);
-}
-
-.profile-circle img {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    object-fit: cover;
 }
 
 .header-right {
@@ -99,13 +87,8 @@ header {
     line-height: 1;
 }
 
-.rare-counter span {
-    color: var(--legendary);
-}
+.rare-counter span { color: var(--legendary); }
 
-/* ==========================================================================
-   CONTENEDOR DEL JUEGO (RASCA)
-   ========================================================================== */
 .game-container {
     flex: 1;
     width: 100%;
@@ -118,7 +101,6 @@ header {
     gap: 25px;
 }
 
-/* Intentos (Círculos Amarillos) */
 .attempts-container {
     display: flex;
     gap: 15px;
@@ -138,7 +120,6 @@ header {
     box-shadow: 0 0 10px var(--primary);
 }
 
-/* El recuadro del Rasca */
 .scratch-card-wrapper {
     position: relative;
     width: 320px;
@@ -150,7 +131,6 @@ header {
     border: 3px solid #334155;
 }
 
-/* El premio oculto detrás */
 .secret-prize-content {
     position: absolute;
     width: 100%;
@@ -179,7 +159,6 @@ header {
     color: var(--text);
 }
 
-/* El lienzo de rascar de encima */
 #scratch-canvas {
     position: absolute;
     top: 0;
@@ -188,10 +167,9 @@ header {
     height: 100%;
     z-index: 2;
     cursor: pointer;
-    touch-action: none; /* Crucial para que el móvil no haga scroll al rascar */
+    touch-action: none;
 }
 
-/* Botones de acción */
 .actions-container {
     width: 100%;
     display: flex;
@@ -211,10 +189,6 @@ button {
     box-shadow: 0 4px 10px rgba(251, 191, 36, 0.3);
 }
 
-button:active {
-    transform: scale(0.98);
-}
-
 button:disabled {
     background: #334155;
     color: #64748b;
@@ -222,9 +196,6 @@ button:disabled {
     box-shadow: none;
 }
 
-/* ==========================================================================
-   ESTADÍSTICAS Y TABLAS (ABAJO)
-   ========================================================================== */
 footer {
     width: 100%;
     max-width: 600px;
@@ -260,17 +231,13 @@ footer {
     border-bottom: 1px solid #1e293b;
 }
 
-/* Colores de texto de rareza */
 .rarity-common { color: var(--common); }
 .rarity-rare { color: var(--rare); font-weight: 600; }
 .rarity-epic { color: var(--epic); font-weight: 600; }
 .rarity-legendary { color: var(--legendary); font-weight: 700; animation: pulse 1.5s infinite; }
 
-/* ==========================================================================
-   MODALES (VENTANAS EMERGENTES)
-   ========================================================================== */
 .modal {
-    display: none; /* Oculto por defecto */
+    display: none;
     position: fixed;
     top: 0;
     left: 0;
@@ -305,8 +272,6 @@ footer {
     cursor: pointer;
 }
 
-.close-btn:hover { color: var(--text); }
-
 .modal h2 {
     margin-bottom: 20px;
     font-size: 1.4rem;
@@ -333,7 +298,6 @@ footer {
     margin-bottom: 10px;
 }
 
-/* Grillas y Listas de los modales */
 .avatar-selection-grid {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -396,7 +360,6 @@ footer {
     border-left: 4px solid var(--primary);
 }
 
-/* Formularios */
 .form-group {
     margin-bottom: 15px;
     display: flex;
@@ -404,10 +367,7 @@ footer {
     gap: 5px;
 }
 
-.form-group label {
-    font-size: 0.85rem;
-    color: var(--text-muted);
-}
+.form-group label { font-size: 0.85rem; color: var(--text-muted); }
 
 .form-group input {
     background-color: #0f172a;
@@ -418,17 +378,7 @@ footer {
     font-size: 1rem;
 }
 
-.form-group input:focus {
-    outline: none;
-    border-color: var(--primary);
-}
-
-#auth-form button {
-    width: 100%;
-    margin-top: 10px;
-}
-
-/* Utilidades */
+#auth-form button { width: 100%; margin-top: 10px; }
 .hidden { display: none !important; }
 .sub-modal { z-index: 15; }
 .empty-msg { font-size: 0.85rem; color: var(--text-muted); text-align: center; }
