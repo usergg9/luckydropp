@@ -13,7 +13,7 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 let currentUser = null;
 let currentPrize = null;
 let attemptsLeft = 3;
-let timeUnlock = null; // Almacenará la hora exacta de regeneración
+let timeUnlock = null; 
 let isScratchedEnough = false; 
 let gamePhase = "scratch"; 
 let isDrawing = false; 
@@ -24,8 +24,18 @@ const actionBtn = document.getElementById('action-btn');
 const secretPrizeEl = document.getElementById('secret-prize');
 const attemptCircles = document.querySelectorAll('.attempt-circle');
 
-// Timer visual para la cuenta atrás
 let countdownInterval = null;
+
+// Tabla de respaldo local con las probabilidades reales exactas
+const TABLA_PREMIOS_LOCAL = [
+    { id: 1, nombre: "🍀 Trébol de 4 Hojas", rareza: "Común", probabilidad: 45.0 },
+    { id: 2, nombre: "🐴 Herradura de Bronce", rareza: "Común", probabilidad: 25.0 },
+    { id: 3, nombre: "🪙 Moneda de la Fortuna", rareza: "Raro", probabilidad: 15.0 },
+    { id: 4, nombre: "🪲 Escarabajo Sagrado", rareza: "Raro", probabilidad: 9.0 },
+    { id: 5, nombre: "👁️ Ojo de Horus", rareza: "Épico", probabilidad: 4.5 },
+    { id: 6, font: "🪶 Atrapasueños Ancestral", nombre: "🪶 Atrapasueños", rareza: "Épico", probabilidad: 1.4 },
+    { id: 7, nombre: "🐱 Maneki-Neko de Oro", rareza: "Legendario", probabilidad: 0.1 }
+];
 
 document.addEventListener("DOMContentLoaded", async () => {
     setupScratchEvents();
@@ -45,10 +55,9 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ==========================================================================
-// CANVAS OPTIMIZADO (RE-RASCABLE CORREGIDO)
+// CANVAS OPTIMIZADO (RE-RASCABLE)
 // ==========================================================================
 function initCanvas() {
-    // getBoundingClientRect evita el error de canvas invisibles al inicio
     canvas.width = canvas.getBoundingClientRect().width || 360;
     canvas.height = canvas.getBoundingClientRect().height || 220;
 
@@ -70,10 +79,7 @@ function initCanvas() {
 }
 
 function setupScratchEvents() {
-    const startScratch = () => { 
-        if(attemptsLeft > 0 && !timeUnlock) isDrawing = true; 
-    };
-    
+    const startScratch = () => { if(attemptsLeft > 0 && !timeUnlock) isDrawing = true; };
     const endScratch = () => { 
         isDrawing = false; 
         if(attemptsLeft > 0 && !timeUnlock) checkScratchPercentage();
@@ -81,8 +87,6 @@ function setupScratchEvents() {
     
     canvas.addEventListener('mousedown', startScratch);
     canvas.addEventListener('touchstart', startScratch);
-    
-    // Al soltar el dedo fuera o dentro, se evalúa pero NO se congela el canvas
     window.addEventListener('mouseup', endScratch); 
     window.addEventListener('touchend', endScratch);
 
@@ -94,7 +98,7 @@ function setupScratchEvents() {
 }
 
 function scratch(e) {
-    if (!isDrawing) return; // Ahora se rasca libremente sin importar el gamePhase anterior
+    if (!isDrawing) return;
 
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -120,7 +124,6 @@ function checkScratchPercentage() {
 
     const percentage = (transparentPixels / (pixels.length / 4)) * 100;
 
-    // Si ha rascado más del 10%, el botón cambia a canjeable pero el canvas sigue libre
     if (percentage > 10.0 && !isScratchedEnough) {
         isScratchedEnough = true;
         gamePhase = "claim";
@@ -130,21 +133,25 @@ function checkScratchPercentage() {
 }
 
 // ==========================================================================
-// PREMIOS MÍSTICOS
+// SELECCIÓN MATEMÁTICA DE PREMIOS SEGÚN PROBABILIDADES
 // ==========================================================================
 async function prepareNextPrize() {
     initCanvas();
     gamePhase = "scratch";
 
-    const { data: premios, error } = await supabaseClient.from('premios').select('*');
+    // Intentamos cargar la lista desde Supabase
+    let { data: premios, error } = await supabaseClient.from('premios').select('*');
+    
+    // Si la base de datos falla, está vacía o no tiene permisos, usamos la réplica local exacta
     if (error || !premios || premios.length === 0) {
-        generateRandomPrizeLocal();
-        return;
+        premios = TABLA_PREMIOS_LOCAL;
     }
 
+    // Algoritmo de selección por peso aleatorio (Matemática Real)
     const random = Math.random() * 100;
     let acumulado = 0;
-    
+    currentPrize = premios[0]; // Por si acaso
+
     for (let premio of premios) {
         acumulado += premio.probabilidad;
         if (random <= acumulado) {
@@ -153,19 +160,32 @@ async function prepareNextPrize() {
         }
     }
 
-    secretPrizeEl.querySelector('.prize-rarity').textContent = currentPrize.rareza;
+    // Renderizado dinámico en la tarjeta
+    secretPrizeEl.querySelector('.prize-rarity').textContent = currentPrize.rareza.toUpperCase();
     secretPrizeEl.querySelector('.prize-rarity').className = `prize-rarity rarity-${currentPrize.rareza.toLowerCase()}`;
     secretPrizeEl.querySelector('.prize-name').textContent = currentPrize.nombre;
 }
 
 function generateRandomPrizeLocal() {
-    currentPrize = { id: 1, nombre: "🍀 Trébol de 4 Hojas", rareza: "Común" };
-    secretPrizeEl.querySelector('.prize-rarity').textContent = currentPrize.rareza;
+    // Primera carga usa el algoritmo aleatorio basado en peso
+    const random = Math.random() * 100;
+    let acumulado = 0;
+    currentPrize = TABLA_PREMIOS_LOCAL[0];
+
+    for (let premio of TABLA_PREMIOS_LOCAL) {
+        acumulado += premio.probabilidad;
+        if (random <= acumulado) {
+            currentPrize = premio;
+            break;
+        }
+    }
+    secretPrizeEl.querySelector('.prize-rarity').textContent = currentPrize.rareza.toUpperCase();
+    secretPrizeEl.querySelector('.prize-rarity').className = `prize-rarity rarity-${currentPrize.rareza.toLowerCase()}`;
     secretPrizeEl.querySelector('.prize-name').textContent = currentPrize.nombre;
 }
 
 // ==========================================================================
-// GESTIÓN DE VIDAS DIARIAS (REGENERACIÓN 24 HORAS EXACTAS)
+// GESTIÓN DE VIDAS DIARIAS (24 HORAS EXACTAS)
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
     let { data, error } = await supabaseClient
@@ -184,7 +204,6 @@ async function checkAndLoadDailyAttempts(userId) {
     }
 
     if (data) {
-        // Comprobar si las vidas estaban agotadas y ya pasó el tiempo de espera
         if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
             await supabaseClient
                 .from('intentos_diarios')
@@ -214,14 +233,13 @@ function updateAttemptsUI() {
         clearInterval(countdownInterval);
         actionBtn.disabled = true;
         
-        // Lanzamos el contador en tiempo real para avisar cuándo se abren las 3 nuevas vidas
         countdownInterval = setInterval(() => {
             const ahora = new Date();
             const diferencia = timeUnlock - ahora;
 
             if (diferencia <= 0) {
                 clearInterval(countdownInterval);
-                actionBtn.innerHTML = "<span>🔄 Vidas Listas. ¡Recarga la web!</span>";
+                actionBtn.innerHTML = "<span>🔄 Vidas Listas. ¡Recarga!</span>";
                 actionBtn.disabled = false;
                 window.location.reload();
             } else {
@@ -239,7 +257,7 @@ function updateAttemptsUI() {
 }
 
 // ==========================================================================
-// CANJE DE PREMIOS EN TIEMPO REAL
+// CANJE DE PREMIOS
 // ==========================================================================
 async function claimPrize() {
     if (!currentUser) {
@@ -248,19 +266,16 @@ async function claimPrize() {
     }
     if (attemptsLeft <= 0 || timeUnlock) return;
 
-    // 1. Guardar premio en el historial
     await supabaseClient.from('historial_premios').insert([
         { user_id: currentUser.id, premio_id: currentPrize.id }
     ]);
 
-    // 2. Descontar una vida
     attemptsLeft--;
     let fechaBloqueo = null;
 
-    // Si llega a 0, calculamos el desbloqueo a las 24 horas exactas a partir de YA
     if (attemptsLeft === 0) {
         const tiempoEspera = new Date();
-        tiempoEspera.setHours(tiempoEspera.getHours() + 24); // +24 horas exactas
+        tiempoEspera.setHours(tiempoEspera.getHours() + 24); 
         fechaBloqueo = tiempoEspera.toISOString();
         timeUnlock = tiempoEspera;
     }
@@ -280,8 +295,41 @@ async function claimPrize() {
 }
 
 // ==========================================================================
-// MANEJO DE SESIÓN Y AVATARES REALTIME
+// LOGIN CON CONTROL ANTI-SPAM DETALLADO (ANTI TOO MANY REQUESTS)
 // ==========================================================================
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const mode = document.getElementById('modal-auth-form').dataset.mode;
+    const email = document.getElementById('input-email').value;
+    const password = document.getElementById('input-password').value;
+    const username = document.getElementById('input-username').value;
+
+    if (mode === 'register') {
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
+        
+        if (error) {
+            // Captura el límite de velocidad por IP de Supabase
+            if (error.status === 429) {
+                return alert("🛑 Seguridad: Has creado demasiadas cuentas seguidas. Por favor, espera unos minutos o cambia el límite de 'Rate Limits' en el panel de control de Supabase.");
+            }
+            return alert(error.message);
+        }
+
+        if (data.user) {
+            await supabaseClient.from('usuarios').insert([
+                { id: data.user.id, username: username, avatar_url: '🦊' }
+            ]);
+            alert("¡Registro místico completado!");
+            await supabaseClient.auth.signInWithPassword({ email, password });
+            window.location.reload(); 
+        }
+    } else {
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
+        if (error) return alert(error.message);
+        window.location.reload(); 
+    }
+}
+
 async function handleUserLogin(user) {
     currentUser = user;
     
@@ -300,38 +348,13 @@ async function handleUserLogin(user) {
     document.getElementById('current-avatar-emoji').textContent = perfil.avatar_url;
 
     document.querySelectorAll('.avatar-pick').forEach(p => {
+        p.classList.remove('selected');
         if(p.dataset.avatar === perfil.avatar_url) p.classList.add('selected');
     });
 
     await checkAndLoadDailyAttempts(user.id);
     loadMyPrizes();
     prepareNextPrize();
-}
-
-async function handleAuthSubmit(e) {
-    e.preventDefault();
-    const mode = document.getElementById('modal-auth-form').dataset.mode;
-    const email = document.getElementById('input-email').value;
-    const password = document.getElementById('input-password').value;
-    const username = document.getElementById('input-username').value;
-
-    if (mode === 'register') {
-        const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        if (error) return alert(error.message);
-
-        if (data.user) {
-            await supabaseClient.from('usuarios').insert([
-                { id: data.user.id, username: username, avatar_url: '🦊' }
-            ]);
-            alert("¡Registro místico completado!");
-            await supabaseClient.auth.signInWithPassword({ email, password });
-            window.location.reload(); 
-        }
-    } else {
-        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
-        if (error) return alert(error.message);
-        window.location.reload(); 
-    }
 }
 
 // ==========================================================================
