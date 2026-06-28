@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LuckyDrop - Rasca y Gana Amuletos</title>
+    <title>LuckyDrop Premium - Rasca y Gana</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -11,141 +11,158 @@
 
     <header>
         <div class="header-left">
-            <div id="profile-btn" class="circle-btn profile-circle">
+            <div id="profile-btn" class="circle-btn profile-circle" title="Mi Cuenta Mística">
                 <span id="current-avatar-emoji">👤</span>
             </div>
         </div>
         
-        <h1 class="logo">LuckyDrop</h1>
+        <div class="logo-container">
+            <h1 class="logo">Lucky<span>Drop</span></h1>
+            <div class="live-indicator">● EN VIVO</div>
+        </div>
         
         <div class="header-right">
-            <div id="live-prizes-btn" class="circle-counter" title="Premios canjeados hoy">
+            <div id="live-prizes-btn" class="circle-counter" title="Premios globales hoy">
                 <span id="count-prizes-today">0</span>
-                <small>Premios Hoy</small>
+                <small>Canjes</small>
             </div>
-            <div id="legendary-winners-btn" class="circle-counter rare-counter" title="Ganadores Legendarios">
+            <div id="legendary-winners-btn" class="circle-counter rare-counter" title="Ganadores del Maneki-Neko">
                 <span id="count-legendary-winners">0</span>
-                <small>Gatos Oro</small>
+                <small>Míticos</small>
             </div>
         </div>
     </header>
 
     <main class="game-container">
         
-        <div class="attempts-container">
-            <div class="attempt-circle active"></div>
-            <div class="attempt-circle active"></div>
-            <div class="attempt-circle active"></div>
+        <div class="status-bar">
+            <span class="status-title">Vidas Diarias</span>
+            <div class="attempts-container">
+                <div class="attempt-circle active"></div>
+                <div class="attempt-circle active"></div>
+                <div class="attempt-circle active"></div>
+            </div>
         </div>
 
         <div class="scratch-card-wrapper">
             <div id="secret-prize" class="secret-prize-content">
-                <span class="prize-rarity"></span>
-                <h3 class="prize-name">¡Rasca para descubrir!</h3>
+                <div class="prize-glow-effect"></div>
+                <span class="prize-rarity">COMÚN</span>
+                <h3 class="prize-name">🍀 Trébol de la Suerte</h3>
+                <div class="prize-sparkles">✨✨</div>
             </div>
             <canvas id="scratch-canvas"></canvas>
         </div>
 
         <div class="actions-container">
-            <button id="action-btn" disabled>Canjear</button>
+            <button id="action-btn" disabled>
+                <span>Rasca el panel gris</span>
+            </button>
         </div>
 
     </main>
 
     <footer>
         <section class="stats-section">
-            <h3>🔮 Probabilidades de los Amuletos</h3>
-            <table class="stats-table">
-                <thead>
-                    <tr>
-                        <th>Amuleto</th>
-                        <th>Rareza</th>
-                        <th>Probabilidad</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td>Trébol de 4 Hojas</td><td class="rarity-common">Común</td><td>45.0%</td></tr>
-                    <tr><td>Herradura de Bronce</td><td class="rarity-common">Común</td><td>25.0%</td></tr>
-                    <tr><td>Moneda de la Fortuna</td><td class="rarity-rare">Raro</td><td>15.0%</td></tr>
-                    <tr><td>Escarabajo Sagrado</td><td class="rarity-rare">Raro</td><td>9.0%</td></tr>
-                    <tr><td>Ojo de Horus</td><td class="rarity-epic">Épico</td><td>4.5%</td></tr>
-                    <tr><td>Atrapasueños Ancestral</td><td class="rarity-epic">Épico</td><td>1.4%</td></tr>
-                    <tr><td>Maneki-Neko de Oro</td><td class="rarity-legendary">Legendario</td><td>0.1%</td></tr>
-                </tbody>
-            </table>
+            <h3>🔮 Tabla de Augurios y Probabilidades</h3>
+            <div class="table-container">
+                <table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th>Amuleto Sagrado</th>
+                            <th>Rareza</th>
+                            <th>Probabilidad</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>🍀 Trébol de 4 Hojas</td><td class="rarity-common"><span>Común</span></td><td>45.0%</td></tr>
+                        <tr><td>🐴 Herradura de Bronce</td><td class="rarity-common"><span>Común</span></td><td>25.0%</td></tr>
+                        <tr><td>🪙 Moneda de la Fortuna</td><td class="rarity-rare"><span>Raro</span></td><td>15.0%</td></tr>
+                        <tr><td>🪲 Escarabajo Sagrado</td><td class="rarity-rare"><span>Raro</span></td><td>9.0%</td></tr>
+                        <tr><td>👁️ Ojo de Horus</td><td class="rarity-epic"><span>Épico</span></td><td>4.5%</td></tr>
+                        <tr><td>🪶 Atrapasueños Ancestral</td><td class="rarity-epic"><span>Épico</span></td><td>1.4%</td></tr>
+                        <tr><td>🐱 Maneki-Neko de Oro</td><td class="rarity-legendary"><span>Legendario</span></td><td>0.1%</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </section>
     </footer>
 
     <div id="modal-profile" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
-            <h2>Mi Cuenta</h2>
+            <div class="modal-header">
+                <h2>Panel de Control</h2>
+                <p class="subtitle">Gestiona tu fortuna a tiempo real</p>
+            </div>
             
-            <div class="profile-sections">
-                <div class="profile-section" id="auth-section">
-                    <h3>1. Acceso</h3>
+            <div class="profile-grid">
+                <div class="profile-card auth-card">
                     <div id="auth-logged-out">
-                        <button id="btn-show-login">Iniciar Sesión</button>
-                        <button id="btn-show-register">Registrarse</button>
+                        <h3>Acceso Guardado</h3>
+                        <p>Sincroniza tus amuletos en la nube.</p>
+                        <div class="auth-buttons">
+                            <button id="btn-show-login" class="secondary-btn">Entrar</button>
+                            <button id="btn-show-register">Registrarse</button>
+                        </div>
                     </div>
                     <div id="auth-logged-in" class="hidden">
-                        <p>Bienvenido, <strong id="display-username">Usuario</strong></p>
-                        <button id="btn-logout">Cerrar Sesión</button>
+                        <div class="user-welcome">
+                            <span id="user-badge-avatar">🦊</span>
+                            <div>
+                                <h3>Sesión Activa</h3>
+                                <p id="display-username">Cargando...</p>
+                            </div>
+                        </div>
+                        <button id="btn-logout" class="danger-btn">Desconectarse</button>
                     </div>
                 </div>
 
-                <div class="profile-section">
-                    <h3>2. Elegir Avatar</h3>
-                    <button id="btn-open-avatars">Cambiar Avatar Animado</button>
+                <div class="profile-card">
+                    <h3>Identidad Mística</h3>
+                    <p class="card-desc">Cambia tu avatar en cualquier momento:</p>
+                    <div class="avatar-inline-grid">
+                        <span class="avatar-pick" data-avatar="🦊">🦊</span>
+                        <span class="avatar-pick" data-avatar="🐼">🐼</span>
+                        <span class="avatar-pick" data-avatar="🦁">🦁</span>
+                        <span class="avatar-pick" data-avatar="🐸">🐸</span>
+                        <span class="avatar-pick" data-avatar="🐱">🐱</span>
+                        <span class="avatar-pick" data-avatar="🐰">🐰</span>
+                        <span class="avatar-pick" data-avatar="🐻">🐻</span>
+                        <span class="avatar-pick" data-avatar="🦄">🦄</span>
+                        <span class="avatar-pick" data-avatar="🦅">🦅</span>
+                        <span class="avatar-pick" data-avatar="🐉">🐉</span>
+                    </div>
                 </div>
 
-                <div class="profile-section">
-                    <h3>3. Mis Premios Ganados</h3>
+                <div class="profile-card wide-card">
+                    <h3>🎒 Tu Inventario de Amuletos</h3>
                     <div id="my-prizes-list" class="prizes-grid">
-                        <p class="empty-msg">Inicia sesión para ver tu colección.</p>
+                        <p class="empty-msg">Inicia sesión para sincronizar tu inventario.</p>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <div id="modal-avatars" class="modal sub-modal">
-        <div class="modal-content">
-            <span class="close-sub-btn">&times;</span>
-            <h2>Selecciona tu Avatar Animal</h2>
-            <div class="avatar-selection-grid">
-                <div class="avatar-option" data-avatar="🦊">🦊<br><small>Zorro</small></div>
-                <div class="avatar-option" data-avatar="🐼">🐼<br><small>Panda</small></div>
-                <div class="avatar-option" data-avatar="🦁">🦁<br><small>León</small></div>
-                <div class="avatar-option" data-avatar="🐸">🐸<br><small>Rana</small></div>
-                <div class="avatar-option" data-avatar="🐱">🐱<br><small>Gato</small></div>
-                <div class="avatar-option" data-avatar="🐶">🐶<br><small>Perro</small></div>
-                <div class="avatar-option" data-avatar="🐰">🐰<br><small>Conejo</small></div>
-                <div class="avatar-option" data-avatar="🐻">🐻<br><small>Oso</small></div>
-                <div class="avatar-option" data-avatar="🐨">🐨<br><small>Koala</small></div>
-                <div class="avatar-option" data-avatar="🐵">🐵<br><small>Mono</small></div>
             </div>
         </div>
     </div>
 
     <div id="modal-auth-form" class="modal sub-modal">
-        <div class="modal-content">
+        <div class="modal-content compact-modal">
             <span class="close-auth-form-btn">&times;</span>
-            <h2 id="auth-form-title">Iniciar Sesión</h2>
+            <h2 id="auth-form-title">Autenticación</h2>
             <form id="auth-form">
                 <div id="username-field" class="form-group hidden">
-                    <label for="input-username">Nombre de Usuario:</label>
-                    <input type="text" id="input-username" placeholder="Tu apodo de la suerte">
+                    <label>Nombre de Usuario</label>
+                    <input type="text" id="input-username" placeholder="Tu apodo público">
                 </div>
                 <div class="form-group">
-                    <label for="input-email">Correo Electrónico:</label>
-                    <input type="email" id="input-email" required placeholder="correo@ejemplo.com">
+                    <label>Email</label>
+                    <input type="email" id="input-email" required placeholder="tu@email.com">
                 </div>
                 <div class="form-group">
-                    <label for="input-password">Contraseña:</label>
+                    <label>Contraseña</label>
                     <input type="password" id="input-password" required placeholder="••••••••">
                 </div>
-                <button type="submit" id="btn-submit-auth">Enviar</button>
+                <button type="submit" class="submit-auth-btn">Confirmar Ingreso</button>
             </form>
         </div>
     </div>
@@ -153,9 +170,12 @@
     <div id="modal-prizes-today" class="modal">
         <div class="modal-content">
             <span class="close-prizes-today-btn">&times;</span>
-            <h2>Premios Canjeados Hoy 🕒</h2>
+            <div class="modal-header">
+                <h2>Premios de Hoy</h2>
+                <p class="subtitle">Historial global en tiempo real</p>
+            </div>
             <ul id="prizes-today-list" class="live-list">
-                <li>Cargando actividad en vivo...</li>
+                <li>Buscando transmisiones místicas...</li>
             </ul>
         </div>
     </div>
@@ -163,10 +183,12 @@
     <div id="modal-legendary" class="modal">
         <div class="modal-content">
             <span class="close-legendary-btn">&times;</span>
-            <h2>👑 Salón de la Fama: Maneki-Neko de Oro</h2>
-            <p>Usuarios legendarios que han desafiado el 0.1% de probabilidad:</p>
-            <ul id="legendary-winners-list" class="live-list">
-                <li>Buscando ganadores míticos...</li>
+            <div class="modal-header">
+                <h2>Salón del 0.1%</h2>
+                <p class="subtitle">Invocadores del legendario Maneki-Neko de Oro</p>
+            </div>
+            <ul id="legendary-winners-list" class="live-list legendary-list">
+                <li>Esperando registros divinos...</li>
             </ul>
         </div>
     </div>
