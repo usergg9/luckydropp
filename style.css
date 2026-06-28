@@ -420,7 +420,7 @@ footer {
     border-radius: 16px;
 }
 
-/* GRID NUEVA PARA INVENTARIO TIPO CONTADORES */
+/* GRID PARA INVENTARIO TIPO CONTADORES */
 .prizes-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
