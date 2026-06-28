@@ -4,14 +4,16 @@
 const SUPABASE_URL = "https://ybsrkghhgurjgrfukgox.supabase.co";
 const SUPABASE_KEY = "sb_publishable_gxjNTA6NmdNdyt46l11XBg_3NlCFRrX";
 
-supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Declaración segura del cliente global
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ==========================================================================
-// MOTOR DE ESTADO GLOBAL (BLINDADO)
+// MOTOR DE ESTADO GLOBAL
 // ==========================================================================
 let currentUser = null;
 let currentPrize = null;
 let attemptsLeft = 3;
+let timeUnlock = null; // Almacenará la hora exacta de regeneración
 let isScratchedEnough = false; 
 let gamePhase = "scratch"; 
 let isDrawing = false; 
@@ -22,15 +24,15 @@ const actionBtn = document.getElementById('action-btn');
 const secretPrizeEl = document.getElementById('secret-prize');
 const attemptCircles = document.querySelectorAll('.attempt-circle');
 
-// ==========================================================================
-// INICIALIZADOR DE PROYECTO
-// ==========================================================================
+// Timer visual para la cuenta atrás
+let countdownInterval = null;
+
 document.addEventListener("DOMContentLoaded", async () => {
     setupScratchEvents();
     setupEventListeners();
     initCanvas();
     
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
         await handleUserLogin(session.user);
     } else {
@@ -43,18 +45,19 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ==========================================================================
-// CAPA GRIS DE RASCADO (CÁLCULO EXACTO DE PÍXELES)
+// CANVAS OPTIMIZADO (RE-RASCABLE CORREGIDO)
 // ==========================================================================
 function initCanvas() {
-    canvas.width = canvas.offsetWidth || 320;
-    canvas.height = canvas.offsetHeight || 220;
+    // getBoundingClientRect evita el error de canvas invisibles al inicio
+    canvas.width = canvas.getBoundingClientRect().width || 360;
+    canvas.height = canvas.getBoundingClientRect().height || 220;
 
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = '#475569';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = '#94a3b8';
-    ctx.font = 'bold 16px system-ui';
+    ctx.font = 'bold 14px system-ui';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⚡ PASA EL DEDO PARA RASCAR ⚡', canvas.width / 2, canvas.height / 2);
@@ -67,14 +70,19 @@ function initCanvas() {
 }
 
 function setupScratchEvents() {
-    const startScratch = () => { if(attemptsLeft > 0 && gamePhase === "scratch") isDrawing = true; };
+    const startScratch = () => { 
+        if(attemptsLeft > 0 && !timeUnlock) isDrawing = true; 
+    };
+    
     const endScratch = () => { 
         isDrawing = false; 
-        if(attemptsLeft > 0 && gamePhase === "scratch") checkScratchPercentage();
+        if(attemptsLeft > 0 && !timeUnlock) checkScratchPercentage();
     };
     
     canvas.addEventListener('mousedown', startScratch);
     canvas.addEventListener('touchstart', startScratch);
+    
+    // Al soltar el dedo fuera o dentro, se evalúa pero NO se congela el canvas
     window.addEventListener('mouseup', endScratch); 
     window.addEventListener('touchend', endScratch);
 
@@ -86,7 +94,7 @@ function setupScratchEvents() {
 }
 
 function scratch(e) {
-    if (!isDrawing || gamePhase !== "scratch") return;
+    if (!isDrawing) return; // Ahora se rasca libremente sin importar el gamePhase anterior
 
     const rect = canvas.getBoundingClientRect();
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -112,6 +120,7 @@ function checkScratchPercentage() {
 
     const percentage = (transparentPixels / (pixels.length / 4)) * 100;
 
+    // Si ha rascado más del 10%, el botón cambia a canjeable pero el canvas sigue libre
     if (percentage > 10.0 && !isScratchedEnough) {
         isScratchedEnough = true;
         gamePhase = "claim";
@@ -121,13 +130,13 @@ function checkScratchPercentage() {
 }
 
 // ==========================================================================
-// OBTENCIÓN DE PREMIOS EN TIEMPO REAL
+// PREMIOS MÍSTICOS
 // ==========================================================================
 async function prepareNextPrize() {
     initCanvas();
     gamePhase = "scratch";
 
-    const { data: premios, error } = await supabase.from('premios').select('*');
+    const { data: premios, error } = await supabaseClient.from('premios').select('*');
     if (error || !premios || premios.length === 0) {
         generateRandomPrizeLocal();
         return;
@@ -156,28 +165,39 @@ function generateRandomPrizeLocal() {
 }
 
 // ==========================================================================
-// HISTORIAL DE INTENTOS DIARIOS POR USUARIO
+// GESTIÓN DE VIDAS DIARIAS (REGENERACIÓN 24 HORAS EXACTAS)
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
-    const hoy = new Date().toISOString().split('T')[0];
-
-    let { data, error } = await supabase
+    let { data, error } = await supabaseClient
         .from('intentos_diarios')
         .select('*')
         .eq('user_id', userId)
-        .eq('fecha', hoy)
         .single();
 
     if (error && error.code === 'PGRST116') {
-        const { data: nuevaFila } = await supabase
+        const { data: nuevaFila } = await supabaseClient
             .from('intentos_diarios')
-            .insert([{ user_id: userId, intentos_restantes: 3 }])
+            .insert([{ user_id: userId, intentos_restantes: 3, bloqueado_hasta: null }])
             .select()
             .single();
         data = nuevaFila;
     }
 
-    attemptsLeft = data ? data.intentos_restantes : 0;
+    if (data) {
+        // Comprobar si las vidas estaban agotadas y ya pasó el tiempo de espera
+        if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
+            await supabaseClient
+                .from('intentos_diarios')
+                .update({ intentos_restantes: 3, bloqueado_hasta: null })
+                .eq('user_id', userId);
+            attemptsLeft = 3;
+            timeUnlock = null;
+        } else {
+            attemptsLeft = data.intentos_restantes;
+            timeUnlock = data.bloqueado_hasta ? new Date(data.bloqueado_hasta) : null;
+        }
+    }
+
     updateAttemptsUI();
 }
 
@@ -190,36 +210,65 @@ function updateAttemptsUI() {
         }
     });
 
-    if (attemptsLeft <= 0) {
+    if (timeUnlock) {
+        clearInterval(countdownInterval);
         actionBtn.disabled = true;
-        actionBtn.innerHTML = "<span>Vuelve Mañana</span>";
+        
+        // Lanzamos el contador en tiempo real para avisar cuándo se abren las 3 nuevas vidas
+        countdownInterval = setInterval(() => {
+            const ahora = new Date();
+            const diferencia = timeUnlock - ahora;
+
+            if (diferencia <= 0) {
+                clearInterval(countdownInterval);
+                actionBtn.innerHTML = "<span>🔄 Vidas Listas. ¡Recarga la web!</span>";
+                actionBtn.disabled = false;
+                window.location.reload();
+            } else {
+                const horas = Math.floor(diferencia / (1000 * 60 * 60));
+                const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
+                const segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
+                actionBtn.innerHTML = `<span>⏳ Nuevas Vidas en: ${horas}h ${minutos}m ${segundos}s</span>`;
+            }
+        }, 1000);
+
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = 'rgba(7,10,19,0.85)';
+        ctx.fillStyle = 'rgba(7,10,19,0.92)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 }
 
 // ==========================================================================
-// ACCIÓN DE CANJE
+// CANJE DE PREMIOS EN TIEMPO REAL
 // ==========================================================================
 async function claimPrize() {
     if (!currentUser) {
-        alert("⚠️ Inicia sesión o Regístrate desde el panel superior para poder guardar este premio en tu inventario.");
+        alert("⚠️ Por favor, inicia sesión para guardar este premio.");
         return;
     }
-    if (attemptsLeft <= 0) return;
+    if (attemptsLeft <= 0 || timeUnlock) return;
 
-    await supabase.from('historial_premios').insert([
+    // 1. Guardar premio en el historial
+    await supabaseClient.from('historial_premios').insert([
         { user_id: currentUser.id, premio_id: currentPrize.id }
     ]);
 
+    // 2. Descontar una vida
     attemptsLeft--;
-    const hoy = new Date().toISOString().split('T')[0];
-    await supabase
+    let fechaBloqueo = null;
+
+    // Si llega a 0, calculamos el desbloqueo a las 24 horas exactas a partir de YA
+    if (attemptsLeft === 0) {
+        const tiempoEspera = new Date();
+        tiempoEspera.setHours(tiempoEspera.getHours() + 24); // +24 horas exactas
+        fechaBloqueo = tiempoEspera.toISOString();
+        timeUnlock = tiempoEspera;
+    }
+
+    await supabaseClient
         .from('intentos_diarios')
-        .update({ intentos_restantes: attemptsLeft })
-        .eq('user_id', currentUser.id)
-        .eq('fecha', hoy);
+        .update({ intentos_restantes: attemptsLeft, bloqueado_hasta: fechaBloqueo })
+        .eq('user_id', currentUser.id);
 
     updateAttemptsUI();
     loadMyPrizes(); 
@@ -227,19 +276,16 @@ async function claimPrize() {
     if (attemptsLeft > 0) {
         gamePhase = "reset";
         actionBtn.innerHTML = "<span>🔄 Volver a intentar</span>";
-    } else {
-        actionBtn.innerHTML = "<span>Mañana más</span>";
-        actionBtn.disabled = true;
     }
 }
 
 // ==========================================================================
-// SESIONES Y CAMBIO DE AVATAR EN TIEMPO REAL
+// MANEJO DE SESIÓN Y AVATARES REALTIME
 // ==========================================================================
 async function handleUserLogin(user) {
     currentUser = user;
     
-    let { data: perfil } = await supabase.from('usuarios').select('*').eq('id', user.id).single();
+    let { data: perfil } = await supabaseClient.from('usuarios').select('*').eq('id', user.id).single();
     if (!perfil) {
         perfil = { username: user.email.split('@')[0], avatar_url: '👤' };
     }
@@ -251,7 +297,6 @@ async function handleUserLogin(user) {
     document.getElementById('auth-logged-in').classList.remove('hidden');
     document.getElementById('display-username').textContent = perfil.username;
     document.getElementById('user-badge-avatar').textContent = perfil.avatar_url;
-    
     document.getElementById('current-avatar-emoji').textContent = perfil.avatar_url;
 
     document.querySelectorAll('.avatar-pick').forEach(p => {
@@ -271,26 +316,26 @@ async function handleAuthSubmit(e) {
     const username = document.getElementById('input-username').value;
 
     if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabaseClient.auth.signUp({ email, password });
         if (error) return alert(error.message);
 
         if (data.user) {
-            await supabase.from('usuarios').insert([
+            await supabaseClient.from('usuarios').insert([
                 { id: data.user.id, username: username, avatar_url: '🦊' }
             ]);
             alert("¡Registro místico completado!");
-            await supabase.auth.signInWithPassword({ email, password });
+            await supabaseClient.auth.signInWithPassword({ email, password });
             window.location.reload(); 
         }
     } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabaseClient.auth.signInWithPassword({ email, password });
         if (error) return alert(error.message);
         window.location.reload(); 
     }
 }
 
 // ==========================================================================
-// EVENTOS DE NAVEGACIÓN Y CORRECCIÓN DE MODALES CON COMPORTAMIENTO FIJO
+// EVENTOS Y MODALES SEGUROS
 // ==========================================================================
 function setupEventListeners() {
     actionBtn.addEventListener('click', () => {
@@ -301,7 +346,6 @@ function setupEventListeners() {
         }
     });
 
-    // Cambiado para usar las clases correctas sin romper la consola si no encuentra selectores
     setupModal('profile-btn', 'modal-profile', '.close-btn');
     setupModal('live-prizes-btn', 'modal-prizes-today', '.close-prizes-today-btn', loadPrizesTodayList);
     setupModal('legendary-winners-btn', 'modal-legendary', '.close-legendary-btn', loadLegendaryWinnersList);
@@ -313,7 +357,7 @@ function setupEventListeners() {
     document.getElementById('auth-form').addEventListener('submit', handleAuthSubmit);
 
     document.getElementById('btn-logout').addEventListener('click', async () => {
-        await supabase.auth.signOut();
+        await supabaseClient.auth.signOut();
         window.location.reload();
     });
 
@@ -325,8 +369,7 @@ function setupEventListeners() {
             opt.classList.add('selected');
             
             const selectedEmoji = opt.dataset.avatar;
-            
-            await supabase.from('usuarios').update({ avatar_url: selectedEmoji }).eq('id', currentUser.id);
+            await supabaseClient.from('usuarios').update({ avatar_url: selectedEmoji }).eq('id', currentUser.id);
             
             document.getElementById('current-avatar-emoji').textContent = selectedEmoji;
             document.getElementById('user-badge-avatar').textContent = selectedEmoji;
@@ -339,7 +382,7 @@ function setupModal(triggerId, modalId, closeClass, onOpenCallback = null) {
     const trigger = document.getElementById(triggerId);
     const modal = document.getElementById(modalId);
 
-    if (!trigger || !modal) return; // Blindaje absoluto contra errores Null
+    if (!trigger || !modal) return; 
 
     const closeBtn = modal.querySelector(closeClass);
 
@@ -377,19 +420,19 @@ function openAuthForm(mode) {
 }
 
 // ==========================================================================
-// CONTADORES GLOBALES DE BASE DE DATOS
+// CONTADORES GLOBALES
 // ==========================================================================
 async function loadGlobalCounters() {
     const hoy = new Date().toISOString().split('T')[0];
 
-    const { count: countToday } = await supabase
+    const { count: countToday } = await supabaseClient
         .from('historial_premios')
         .select('*', { count: 'exact', head: true })
         .gte('ganado_at', `${hoy}T00:00:00Z`);
 
     document.getElementById('count-prizes-today').textContent = countToday || 0;
 
-    const { count: countLegendary } = await supabase
+    const { count: countLegendary } = await supabaseClient
         .from('historial_premios')
         .select('*', { count: 'exact', head: true })
         .eq('premio_id', 7);
@@ -401,7 +444,7 @@ async function loadMyPrizes() {
     const container = document.getElementById('my-prizes-list');
     if (!currentUser) return;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
         .from('historial_premios')
         .select('ganado_at, premios(nombre, rareza)')
         .eq('user_id', currentUser.id)
@@ -424,7 +467,7 @@ async function loadPrizesTodayList() {
     const list = document.getElementById('prizes-today-list');
     const hoy = new Date().toISOString().split('T')[0];
 
-    const { data } = await supabase
+    const { data } = await supabaseClient
         .from('historial_premios')
         .select('ganado_at, usuarios(username), premios(nombre)')
         .gte('ganado_at', `${hoy}T00:00:00Z`)
@@ -443,7 +486,7 @@ async function loadPrizesTodayList() {
 async function loadLegendaryWinnersList() {
     const list = document.getElementById('legendary-winners-list');
 
-    const { data } = await supabase
+    const { data } = await supabaseClient
         .from('historial_premios')
         .select('ganado_at, usuarios(username)')
         .eq('premio_id', 7)
@@ -460,7 +503,7 @@ async function loadLegendaryWinnersList() {
 }
 
 function listenToRealtimeChanges() {
-    supabase
+    supabaseClient
         .channel('schema-db-changes')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'historial_premios' }, () => {
             loadGlobalCounters();
