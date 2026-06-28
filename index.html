@@ -22,9 +22,9 @@
         </div>
         
         <div class="header-right">
-            <div id="live-prizes-btn" class="circle-counter" title="Premios globales hoy">
+            <div id="live-prizes-btn" class="circle-counter" title="Ver desglose de canjes globales de hoy">
                 <span id="count-prizes-today">0</span>
-                <small>Canjes</small>
+                <small>Canjes Hoy</small>
             </div>
             <div id="legendary-winners-btn" class="circle-counter rare-counter" title="Ganadores del Maneki-Neko">
                 <span id="count-legendary-winners">0</span>
@@ -88,6 +88,7 @@
         </section>
     </footer>
 
+    <!-- MODALES -->
     <div id="modal-profile" class="modal">
         <div class="modal-content">
             <span class="close-btn">&times;</span>
@@ -136,9 +137,9 @@
                 </div>
 
                 <div class="profile-card wide-card">
-                    <h3>🎒 Tu Inventario de Amuletos</h3>
+                    <h3>🎒 Tu Inventario Acumulado de Amuletos</h3>
                     <div id="my-prizes-list" class="prizes-grid">
-                        <p class="empty-msg">Inicia sesión para sincronizar tu inventario.</p>
+                        <p class="empty-msg">Inicia sesión para ver tus amuletos recolectados.</p>
                     </div>
                 </div>
             </div>
@@ -171,12 +172,14 @@
         <div class="modal-content">
             <span class="close-prizes-today-btn">&times;</span>
             <div class="modal-header">
-                <h2>Premios de Hoy</h2>
-                <p class="subtitle">Historial global en tiempo real</p>
+                <h2>Distribución de Canjes de Hoy</h2>
+                <p class="subtitle">Total global acumulado de amuletos invocados en las últimas 24 horas</p>
             </div>
-            <ul id="prizes-today-list" class="live-list">
-                <li>Buscando transmisiones místicas...</li>
-            </ul>
+            <div class="prizes-summary-box">
+                <ul id="prizes-today-list" class="live-list custom-summary-list">
+                    <li>Calculando estadísticas de la comunidad...</li>
+                </ul>
+            </div>
         </div>
     </div>
 
