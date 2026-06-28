@@ -4,13 +4,12 @@
 const SUPABASE_URL = "https://ybsrkghhgurjgrfukgox.supabase.co";
 const SUPABASE_KEY = "sb_publishable_gxjNTA6NmdNdyt46l11XBg_3NlCFRrX";
 
-// Declaración protegida contra restricciones estricta de tracking de navegadores
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storage: window.localStorage // Obliga a usar el entorno de ventana nativo
+        storage: window.localStorage
     }
 });
 
@@ -26,7 +25,6 @@ let gamePhase = "scratch";
 let isDrawing = false; 
 
 const canvas = document.getElementById('scratch-canvas');
-// SOLUCIÓN AL ERROR DE VELOCIDAD: Añadimos willReadFrequently en el contexto 2D
 const ctx = canvas.getContext('2d', { willReadFrequently: true });
 const actionBtn = document.getElementById('action-btn');
 const secretPrizeEl = document.getElementById('secret-prize');
@@ -50,15 +48,14 @@ document.addEventListener("DOMContentLoaded", async () => {
     initCanvas();
     
     try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session) {
+        const { data: { session }, error } = await supabaseClient.auth.getSession();
+        if (!error && session) {
             await handleUserLogin(session.user);
         } else {
             updateAttemptsUI();
             generateRandomPrizeLocal(); 
         }
     } catch (e) {
-        // En caso de bloqueo total de persistencia, la app sigue funcionando de manera local fluida
         updateAttemptsUI();
         generateRandomPrizeLocal();
     }
@@ -127,7 +124,8 @@ function scratch(e) {
 }
 
 function checkScratchPercentage() {
-    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const optimizacionCtx = canvas.getContext('2d', { willReadFrequently: true });
+    const imageData = optimizacionCtx.getImageData(0, 0, canvas.width, canvas.height);
     const pixels = imageData.data;
     let transparentPixels = 0;
 
@@ -193,7 +191,7 @@ function generateRandomPrizeLocal() {
 }
 
 // ==========================================================================
-// GESTIÓN DE VIDAS DIARIAS (24 HORAS EXACTAS)
+// GESTIÓN DE VIDAS DIARIAS CON BLOQUEO PERSISTENTE (24 HORAS REALES)
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
     try {
@@ -214,6 +212,7 @@ async function checkAndLoadDailyAttempts(userId) {
 
         if (data) {
             if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
+                // El plazo de bloqueo ya expiró, reseteamos las vidas a 3 de forma segura
                 await supabaseClient
                     .from('intentos_diarios')
                     .update({ intentos_restantes: 3, bloqueado_hasta: null })
@@ -239,30 +238,39 @@ function updateAttemptsUI() {
         }
     });
 
-    if (timeUnlock) {
+    if (timeUnlock || attemptsLeft === 0) {
         clearInterval(countdownInterval);
         actionBtn.disabled = true;
         
-        countdownInterval = setInterval(() => {
+        const tickCountdown = () => {
             const ahora = new Date();
             const diferencia = timeUnlock - ahora;
 
             if (diferencia <= 0) {
                 clearInterval(countdownInterval);
-                actionBtn.innerHTML = "<span>🔄 Vidas Listas. ¡Recarga!</span>";
+                actionBtn.innerHTML = "<span>🔄 ¡Vidas Listas! Recarga la página</span>";
                 actionBtn.disabled = false;
-                window.location.reload();
             } else {
                 const horas = Math.floor(diferencia / (1000 * 60 * 60));
                 const minutos = Math.floor((diferencia % (1000 * 60 * 60)) / (1000 * 60));
                 const segundos = Math.floor((diferencia % (1000 * 60)) / 1000);
                 actionBtn.innerHTML = `<span>⏳ Nuevas Vidas en: ${horas}h ${minutos}m ${segundos}s</span>`;
             }
-        }, 1000);
+        };
+
+        if (timeUnlock) {
+            countdownInterval = setInterval(tickCountdown, 1000);
+            tickCountdown();
+        }
 
         ctx.globalCompositeOperation = 'source-over';
         ctx.fillStyle = 'rgba(7,10,19,0.92)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#ef4444';
+        ctx.font = 'bold 13px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🚫 AGOTADO: VUELVE MAÑANA', canvas.width / 2, canvas.height / 2);
     }
 }
 
@@ -307,7 +315,7 @@ async function claimPrize() {
 }
 
 // ==========================================================================
-// LOGIN CON CONTROL ANTI-SPAM
+// CONTROL DE ACCESOS
 // ==========================================================================
 async function handleAuthSubmit(e) {
     e.preventDefault();
@@ -318,13 +326,7 @@ async function handleAuthSubmit(e) {
 
     if (mode === 'register') {
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
-        
-        if (error) {
-            if (error.status === 429) {
-                return alert("🛑 Seguridad: Has creado demasiadas cuentas seguidas. Espera unos minutos o sube los 'Rate Limits' en el panel de Supabase.");
-            }
-            return alert(error.message);
-        }
+        if (error) return alert(error.message);
 
         if (data.user) {
             await supabaseClient.from('usuarios').insert([
@@ -366,11 +368,14 @@ async function handleUserLogin(user) {
 
     await checkAndLoadDailyAttempts(user.id);
     loadMyPrizes();
-    await prepareNextPrize();
+    
+    if (attemptsLeft > 0 && !timeUnlock) {
+        await prepareNextPrize();
+    }
 }
 
 // ==========================================================================
-// EVENTOS Y MODALES SEGUROS
+// EVENTOS Y MODALES
 // ==========================================================================
 function setupEventListeners() {
     actionBtn.addEventListener('click', () => {
@@ -478,6 +483,7 @@ async function loadGlobalCounters() {
     } catch(e) {}
 }
 
+// NUEVO: Agrupador inteligente de Inventario Acumulado (Historial Total)
 async function loadMyPrizes() {
     const container = document.getElementById('my-prizes-list');
     if (!currentUser) return;
@@ -485,24 +491,38 @@ async function loadMyPrizes() {
     try {
         const { data, error } = await supabaseClient
             .from('historial_premios')
-            .select('ganado_at, premios(nombre, rareza)')
-            .eq('user_id', currentUser.id)
-            .order('ganado_at', { ascending: false });
+            .select('premios(id, nombre, rareza)')
+            .eq('user_id', currentUser.id);
 
         if(error || !data || data.length === 0) {
             container.innerHTML = '<p class="empty-msg">Tu inventario está vacío de amuletos.</p>';
             return;
         }
 
-        container.innerHTML = data.map(item => `
-            <div class="prize-item">
-                <span class="rarity-${item.premios?.rareza?.toLowerCase()}">🔮 ${item.premios?.nombre || 'Amuleto Desconocido'}</span>
-                <small>${new Date(item.ganado_at).toLocaleDateString()}</small>
-            </div>
-        `).join('');
+        // Estructuramos los contadores dinámicos mapeando sobre la plantilla maestra
+        const contadores = {};
+        TABLA_PREMIOS_LOCAL.forEach(p => { contadores[p.nombre] = 0; });
+
+        data.forEach(item => {
+            if (item.premios && item.premios.nombre) {
+                contadores[item.premios.nombre] = (contadores[item.premios.nombre] || 0) + 1;
+            }
+        });
+
+        container.innerHTML = TABLA_PREMIOS_LOCAL.map(p => {
+            const cantidad = contadores[p.nombre] || 0;
+            return `
+                <div class="inventory-counter-card">
+                    <span class="inv-name">${p.nombre}</span>
+                    <span class="inv-qty">${cantidad}</span>
+                </div>
+            `;
+        }).join('');
+
     } catch(e) {}
 }
 
+// NUEVO: Distribución acumulada comunitaria de los canjes de hoy
 async function loadPrizesTodayList() {
     const list = document.getElementById('prizes-today-list');
     const hoy = new Date().toISOString().split('T')[0];
@@ -510,18 +530,35 @@ async function loadPrizesTodayList() {
     try {
         const { data } = await supabaseClient
             .from('historial_premios')
-            .select('ganado_at, usuarios(username), premios(nombre)')
-            .gte('ganado_at', `${hoy}T00:00:00Z`)
-            .order('ganado_at', { ascending: false });
+            .select('premios(nombre, rareza)')
+            .gte('ganado_at', `${hoy}T00:00:00Z`);
 
         if(!data || data.length === 0) {
             list.innerHTML = '<li>Nadie ha invocado la suerte hoy todavía.</li>';
             return;
         }
 
-        list.innerHTML = data.map(item => `
-            <li><strong>${item.usuarios?.username || 'Invocador Anónimo'}</strong> ha conseguido un <em>${item.premios?.nombre || 'Amuleto'}</em>.</li>
-        `).join('');
+        const acumuladoHoy = {};
+        TABLA_PREMIOS_LOCAL.forEach(p => { acumuladoHoy[p.nombre] = { cuenta: 0, rareza: p.rareza }; });
+
+        data.forEach(item => {
+            if (item.premios && item.premios.nombre) {
+                if(!acumuladoHoy[item.premios.nombre]) {
+                    acumuladoHoy[item.premios.nombre] = { cuenta: 0, rareza: item.premios.rareza || 'Común' };
+                }
+                acumuladoHoy[item.premios.nombre].cuenta++;
+            }
+        });
+
+        list.innerHTML = TABLA_PREMIOS_LOCAL.map(p => {
+            const datos = acumuladoHoy[p.nombre];
+            return `
+                <li class="summary-prize-row border-${datos.rareza.toLowerCase()}">
+                    <strong>${p.nombre}</strong>
+                    <span class="summary-count-badge">${datos.cuenta} x</span>
+                </li>
+            `;
+        }).join('');
     } catch(e) {}
 }
 
