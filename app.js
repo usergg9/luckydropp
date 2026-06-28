@@ -14,7 +14,7 @@ let currentPrize = null;
 let attemptsLeft = 3;
 let isScratchedEnough = false; 
 let gamePhase = "scratch"; 
-let isDrawing = false; // Estado del pincel del lienzo independiente de modales
+let isDrawing = false; 
 
 const canvas = document.getElementById('scratch-canvas');
 const ctx = canvas.getContext('2d');
@@ -26,7 +26,6 @@ const attemptCircles = document.querySelectorAll('.attempt-circle');
 // INICIALIZADOR DE PROYECTO
 // ==========================================================================
 document.addEventListener("DOMContentLoaded", async () => {
-    // Configura eventos táctiles de una sola vez para que no se congele al cerrar modales
     setupScratchEvents();
     setupEventListeners();
     initCanvas();
@@ -76,7 +75,7 @@ function setupScratchEvents() {
     
     canvas.addEventListener('mousedown', startScratch);
     canvas.addEventListener('touchstart', startScratch);
-    window.addEventListener('mouseup', endScratch); // Control global del ratón suelto fuera del lienzo
+    window.addEventListener('mouseup', endScratch); 
     window.addEventListener('touchend', endScratch);
 
     canvas.addEventListener('mousemove', scratch);
@@ -113,7 +112,6 @@ function checkScratchPercentage() {
 
     const percentage = (transparentPixels / (pixels.length / 4)) * 100;
 
-    // Con rascar más del 10% el botón se activa dinámicamente
     if (percentage > 10.0 && !isScratchedEnough) {
         isScratchedEnough = true;
         gamePhase = "claim";
@@ -211,7 +209,6 @@ async function claimPrize() {
     }
     if (attemptsLeft <= 0) return;
 
-    // Insertar en el historial a tiempo real
     await supabase.from('historial_premios').insert([
         { user_id: currentUser.id, premio_id: currentPrize.id }
     ]);
@@ -255,10 +252,8 @@ async function handleUserLogin(user) {
     document.getElementById('display-username').textContent = perfil.username;
     document.getElementById('user-badge-avatar').textContent = perfil.avatar_url;
     
-    // Cambia el círculo principal superior izquierdo de la web al instante
     document.getElementById('current-avatar-emoji').textContent = perfil.avatar_url;
 
-    // Resalta el avatar seleccionado en la cuadrícula
     document.querySelectorAll('.avatar-pick').forEach(p => {
         if(p.dataset.avatar === perfil.avatar_url) p.classList.add('selected');
     });
@@ -295,7 +290,7 @@ async function handleAuthSubmit(e) {
 }
 
 // ==========================================================================
-// EVENTOS DE NAVEGACIÓN COMPORTAMIENTO FIJO
+// EVENTOS DE NAVEGACIÓN Y CORRECCIÓN DE MODALES CON COMPORTAMIENTO FIJO
 // ==========================================================================
 function setupEventListeners() {
     actionBtn.addEventListener('click', () => {
@@ -306,6 +301,7 @@ function setupEventListeners() {
         }
     });
 
+    // Cambiado para usar las clases correctas sin romper la consola si no encuentra selectores
     setupModal('profile-btn', 'modal-profile', '.close-btn');
     setupModal('live-prizes-btn', 'modal-prizes-today', '.close-prizes-today-btn', loadPrizesTodayList);
     setupModal('legendary-winners-btn', 'modal-legendary', '.close-legendary-btn', loadLegendaryWinnersList);
@@ -321,7 +317,6 @@ function setupEventListeners() {
         window.location.reload();
     });
 
-    // CAMBIO DE AVATAR EN UN CLIC CON ACTUALIZACIÓN REALTIME
     document.querySelectorAll('.avatar-pick').forEach(opt => {
         opt.addEventListener('click', async () => {
             if(!currentUser) return alert("Inicia sesión primero para guardar tu avatar místico.");
@@ -331,10 +326,8 @@ function setupEventListeners() {
             
             const selectedEmoji = opt.dataset.avatar;
             
-            // 1. Guardar instantáneamente en la base de datos de Supabase
             await supabase.from('usuarios').update({ avatar_url: selectedEmoji }).eq('id', currentUser.id);
             
-            // 2. Modificar la UI al vuelo sin recargar la web por completo
             document.getElementById('current-avatar-emoji').textContent = selectedEmoji;
             document.getElementById('user-badge-avatar').textContent = selectedEmoji;
             currentUser.avatar_url = selectedEmoji;
@@ -345,14 +338,23 @@ function setupEventListeners() {
 function setupModal(triggerId, modalId, closeClass, onOpenCallback = null) {
     const trigger = document.getElementById(triggerId);
     const modal = document.getElementById(modalId);
+
+    if (!trigger || !modal) return; // Blindaje absoluto contra errores Null
+
     const closeBtn = modal.querySelector(closeClass);
 
     trigger.addEventListener('click', () => {
         modal.style.display = 'flex';
         if (onOpenCallback) onOpenCallback();
     });
-    // Cerrar el modal no destruye ni altera el lienzo
-    closeBtn.addEventListener('click', () => modal.style.display = 'none');
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => modal.style.display = 'none');
+    }
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.style.display = 'none';
+    });
 }
 
 function openAuthForm(mode) {
