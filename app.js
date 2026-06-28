@@ -4,8 +4,15 @@
 const SUPABASE_URL = "https://ybsrkghhgurjgrfukgox.supabase.co";
 const SUPABASE_KEY = "sb_publishable_gxjNTA6NmdNdyt46l11XBg_3NlCFRrX";
 
-// Declaración segura del cliente global
-const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// Declaración protegida contra restricciones estricta de tracking de navegadores
+const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        storage: window.localStorage // Obliga a usar el entorno de ventana nativo
+    }
+});
 
 // ==========================================================================
 // MOTOR DE ESTADO GLOBAL
@@ -19,14 +26,14 @@ let gamePhase = "scratch";
 let isDrawing = false; 
 
 const canvas = document.getElementById('scratch-canvas');
-const ctx = canvas.getContext('2d');
+// SOLUCIÓN AL ERROR DE VELOCIDAD: Añadimos willReadFrequently en el contexto 2D
+const ctx = canvas.getContext('2d', { willReadFrequently: true });
 const actionBtn = document.getElementById('action-btn');
 const secretPrizeEl = document.getElementById('secret-prize');
 const attemptCircles = document.querySelectorAll('.attempt-circle');
 
 let countdownInterval = null;
 
-// Tabla de respaldo local con las probabilidades reales exactas
 const TABLA_PREMIOS_LOCAL = [
     { id: 1, nombre: "🍀 Trébol de 4 Hojas", rareza: "Común", probabilidad: 45.0 },
     { id: 2, nombre: "🐴 Herradura de Bronce", rareza: "Común", probabilidad: 25.0 },
@@ -42,12 +49,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupEventListeners();
     initCanvas();
     
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-        await handleUserLogin(session.user);
-    } else {
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session) {
+            await handleUserLogin(session.user);
+        } else {
+            updateAttemptsUI();
+            generateRandomPrizeLocal(); 
+        }
+    } catch (e) {
+        // En caso de bloqueo total de persistencia, la app sigue funcionando de manera local fluida
         updateAttemptsUI();
-        generateRandomPrizeLocal(); 
+        generateRandomPrizeLocal();
     }
 
     loadGlobalCounters();
@@ -139,11 +152,11 @@ async function prepareNextPrize() {
     initCanvas();
     gamePhase = "scratch";
 
-    let { data: premios, error } = await supabaseClient.from('premios').select('*');
-    
-    if (error || !premios || premios.length === 0) {
-        premios = TABLA_PREMIOS_LOCAL;
-    }
+    let premios = TABLA_PREMIOS_LOCAL;
+    try {
+        let { data, error } = await supabaseClient.from('premios').select('*');
+        if (!error && data && data.length > 0) premios = data;
+    } catch(e) {}
 
     const random = Math.random() * 100;
     let acumulado = 0;
@@ -183,34 +196,36 @@ function generateRandomPrizeLocal() {
 // GESTIÓN DE VIDAS DIARIAS (24 HORAS EXACTAS)
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
-    let { data, error } = await supabaseClient
-        .from('intentos_diarios')
-        .select('*')
-        .eq('user_id', userId)
-        .single();
-
-    if (error && error.code === 'PGRST116') {
-        const { data: nuevaFila } = await supabaseClient
+    try {
+        let { data, error } = await supabaseClient
             .from('intentos_diarios')
-            .insert([{ user_id: userId, intentos_restantes: 3, bloqueado_hasta: null }])
-            .select()
+            .select('*')
+            .eq('user_id', userId)
             .single();
-        data = nuevaFila;
-    }
 
-    if (data) {
-        if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
-            await supabaseClient
+        if (error && error.code === 'PGRST116') {
+            const { data: nuevaFila } = await supabaseClient
                 .from('intentos_diarios')
-                .update({ intentos_restantes: 3, bloqueado_hasta: null })
-                .eq('user_id', userId);
-            attemptsLeft = 3;
-            timeUnlock = null;
-        } else {
-            attemptsLeft = data.intentos_restantes;
-            timeUnlock = data.bloqueado_hasta ? new Date(data.bloqueado_hasta) : null;
+                .insert([{ user_id: userId, intentos_restantes: 3, bloqueado_hasta: null }])
+                .select()
+                .single();
+            data = nuevaFila;
         }
-    }
+
+        if (data) {
+            if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
+                await supabaseClient
+                    .from('intentos_diarios')
+                    .update({ intentos_restantes: 3, bloqueado_hasta: null })
+                    .eq('user_id', userId);
+                attemptsLeft = 3;
+                timeUnlock = null;
+            } else {
+                attemptsLeft = data.intentos_restantes;
+                timeUnlock = data.bloqueado_hasta ? new Date(data.bloqueado_hasta) : null;
+            }
+        }
+    } catch (e) {}
 
     updateAttemptsUI();
 }
@@ -261,24 +276,26 @@ async function claimPrize() {
     }
     if (attemptsLeft <= 0 || timeUnlock) return;
 
-    await supabaseClient.from('historial_premios').insert([
-        { user_id: currentUser.id, premio_id: currentPrize.id }
-    ]);
+    try {
+        await supabaseClient.from('historial_premios').insert([
+            { user_id: currentUser.id, premio_id: currentPrize.id }
+        ]);
 
-    attemptsLeft--;
-    let fechaBloqueo = null;
+        attemptsLeft--;
+        let fechaBloqueo = null;
 
-    if (attemptsLeft === 0) {
-        const tiempoEspera = new Date();
-        tiempoEspera.setHours(tiempoEspera.getHours() + 24); 
-        fechaBloqueo = tiempoEspera.toISOString();
-        timeUnlock = tiempoEspera;
-    }
+        if (attemptsLeft === 0) {
+            const tiempoEspera = new Date();
+            tiempoEspera.setHours(tiempoEspera.getHours() + 24); 
+            fechaBloqueo = tiempoEspera.toISOString();
+            timeUnlock = tiempoEspera;
+        }
 
-    await supabaseClient
-        .from('intentos_diarios')
-        .update({ intentos_restantes: attemptsLeft, bloqueado_hasta: fechaBloqueo })
-        .eq('user_id', currentUser.id);
+        await supabaseClient
+            .from('intentos_diarios')
+            .update({ intentos_restantes: attemptsLeft, bloqueado_hasta: fechaBloqueo })
+            .eq('user_id', currentUser.id);
+    } catch(e) {}
 
     updateAttemptsUI();
     loadMyPrizes(); 
@@ -290,7 +307,7 @@ async function claimPrize() {
 }
 
 // ==========================================================================
-// LOGIN CON CONTROL ANTI-SPAM DETALLADO (ANTI TOO MANY REQUESTS)
+// LOGIN CON CONTROL ANTI-SPAM
 // ==========================================================================
 async function handleAuthSubmit(e) {
     e.preventDefault();
@@ -304,7 +321,7 @@ async function handleAuthSubmit(e) {
         
         if (error) {
             if (error.status === 429) {
-                return alert("🛑 Seguridad: Has creado demasiadas cuentas seguidas. Por favor, espera unos minutos o cambia el límite de 'Rate Limits' en el panel de control de Supabase.");
+                return alert("🛑 Seguridad: Has creado demasiadas cuentas seguidas. Espera unos minutos o sube los 'Rate Limits' en el panel de Supabase.");
             }
             return alert(error.message);
         }
@@ -327,10 +344,11 @@ async function handleAuthSubmit(e) {
 async function handleUserLogin(user) {
     currentUser = user;
     
-    let { data: perfil } = await supabaseClient.from('usuarios').select('*').eq('id', user.id).single();
-    if (!perfil) {
-        perfil = { username: user.email.split('@')[0], avatar_url: '👤' };
-    }
+    let perfil = { username: user.email.split('@')[0], avatar_url: '👤' };
+    try {
+        let { data } = await supabaseClient.from('usuarios').select('*').eq('id', user.id).single();
+        if (data) perfil = data;
+    } catch(e) {}
 
     currentUser.username = perfil.username;
     currentUser.avatar_url = perfil.avatar_url;
@@ -348,7 +366,7 @@ async function handleUserLogin(user) {
 
     await checkAndLoadDailyAttempts(user.id);
     loadMyPrizes();
-    await prepareNextPrize(); // Inicialización única y segura tras el login
+    await prepareNextPrize();
 }
 
 // ==========================================================================
@@ -386,7 +404,9 @@ function setupEventListeners() {
             opt.classList.add('selected');
             
             const selectedEmoji = opt.dataset.avatar;
-            await supabaseClient.from('usuarios').update({ avatar_url: selectedEmoji }).eq('id', currentUser.id);
+            try {
+                await supabaseClient.from('usuarios').update({ avatar_url: selectedEmoji }).eq('id', currentUser.id);
+            } catch(e) {}
             
             document.getElementById('current-avatar-emoji').textContent = selectedEmoji;
             document.getElementById('user-badge-avatar').textContent = selectedEmoji;
@@ -441,89 +461,98 @@ function openAuthForm(mode) {
 // ==========================================================================
 async function loadGlobalCounters() {
     const hoy = new Date().toISOString().split('T')[0];
+    try {
+        const { count: countToday } = await supabaseClient
+            .from('historial_premios')
+            .select('*', { count: 'exact', head: true })
+            .gte('ganado_at', `${hoy}T00:00:00Z`);
 
-    const { count: countToday } = await supabaseClient
-        .from('historial_premios')
-        .select('*', { count: 'exact', head: true })
-        .gte('ganado_at', `${hoy}T00:00:00Z`);
+        document.getElementById('count-prizes-today').textContent = countToday || 0;
 
-    document.getElementById('count-prizes-today').textContent = countToday || 0;
+        const { count: countLegendary } = await supabaseClient
+            .from('historial_premios')
+            .select('*', { count: 'exact', head: true })
+            .eq('premio_id', 7);
 
-    const { count: countLegendary } = await supabaseClient
-        .from('historial_premios')
-        .select('*', { count: 'exact', head: true })
-        .eq('premio_id', 7);
-
-    document.getElementById('count-legendary-winners').textContent = countLegendary || 0;
+        document.getElementById('count-legendary-winners').textContent = countLegendary || 0;
+    } catch(e) {}
 }
 
 async function loadMyPrizes() {
     const container = document.getElementById('my-prizes-list');
     if (!currentUser) return;
 
-    const { data, error } = await supabaseClient
-        .from('historial_premios')
-        .select('ganado_at, premios(nombre, rareza)')
-        .eq('user_id', currentUser.id)
-        .order('ganado_at', { ascending: false });
+    try {
+        const { data, error } = await supabaseClient
+            .from('historial_premios')
+            .select('ganado_at, premios(nombre, rareza)')
+            .eq('user_id', currentUser.id)
+            .order('ganado_at', { ascending: false });
 
-    if(error || !data || data.length === 0) {
-        container.innerHTML = '<p class="empty-msg">Tu inventario está vacío de amuletos.</p>';
-        return;
-    }
+        if(error || !data || data.length === 0) {
+            container.innerHTML = '<p class="empty-msg">Tu inventario está vacío de amuletos.</p>';
+            return;
+        }
 
-    container.innerHTML = data.map(item => `
-        <div class="prize-item">
-            <span class="rarity-${item.premios?.rareza?.toLowerCase()}">🔮 ${item.premios?.nombre || 'Amuleto Desconocido'}</span>
-            <small>${new Date(item.ganado_at).toLocaleDateString()}</small>
-        </div>
-    `).join('');
+        container.innerHTML = data.map(item => `
+            <div class="prize-item">
+                <span class="rarity-${item.premios?.rareza?.toLowerCase()}">🔮 ${item.premios?.nombre || 'Amuleto Desconocido'}</span>
+                <small>${new Date(item.ganado_at).toLocaleDateString()}</small>
+            </div>
+        `).join('');
+    } catch(e) {}
 }
 
 async function loadPrizesTodayList() {
     const list = document.getElementById('prizes-today-list');
     const hoy = new Date().toISOString().split('T')[0];
 
-    const { data } = await supabaseClient
-        .from('historial_premios')
-        .select('ganado_at, usuarios(username), premios(nombre)')
-        .gte('ganado_at', `${hoy}T00:00:00Z`)
-        .order('ganado_at', { ascending: false });
+    try {
+        const { data } = await supabaseClient
+            .from('historial_premios')
+            .select('ganado_at, usuarios(username), premios(nombre)')
+            .gte('ganado_at', `${hoy}T00:00:00Z`)
+            .order('ganado_at', { ascending: false });
 
-    if(!data || data.length === 0) {
-        list.innerHTML = '<li>Nadie ha invocado la suerte hoy todavía.</li>';
-        return;
-    }
+        if(!data || data.length === 0) {
+            list.innerHTML = '<li>Nadie ha invocado la suerte hoy todavía.</li>';
+            return;
+        }
 
-    list.innerHTML = data.map(item => `
-        <li><strong>${item.usuarios?.username || 'Invocador Anónimo'}</strong> ha conseguido un <em>${item.premios?.nombre || 'Amuleto'}</em>.</li>
-    `).join('');
+        list.innerHTML = data.map(item => `
+            <li><strong>${item.usuarios?.username || 'Invocador Anónimo'}</strong> ha conseguido un <em>${item.premios?.nombre || 'Amuleto'}</em>.</li>
+        `).join('');
+    } catch(e) {}
 }
 
 async function loadLegendaryWinnersList() {
     const list = document.getElementById('legendary-winners-list');
 
-    const { data } = await supabaseClient
-        .from('historial_premios')
-        .select('ganado_at, usuarios(username)')
-        .eq('premio_id', 7)
-        .order('ganado_at', { ascending: false });
+    try {
+        const { data } = await supabaseClient
+            .from('historial_premios')
+            .select('ganado_at, usuarios(username)')
+            .eq('premio_id', 7)
+            .order('ganado_at', { ascending: false });
 
-    if(!data || data.length === 0) {
-        list.innerHTML = '<li>El Maneki-Neko de Oro no ha sido despertado todavía.</li>';
-        return;
-    }
+        if(!data || data.length === 0) {
+            list.innerHTML = '<li>El Maneki-Neko de Oro no ha sido despertado todavía.</li>';
+            return;
+        }
 
-    list.innerHTML = data.map(item => `
-        <li>👑 <strong>${item.usuarios?.username || 'Místico'}</strong> domó al Gato de Oro el ${new Date(item.ganado_at).toLocaleDateString()}.</li>
-    `).join('');
+        list.innerHTML = data.map(item => `
+            <li>👑 <strong>${item.usuarios?.username || 'Místico'}</strong> domó al Gato de Oro el ${new Date(item.ganado_at).toLocaleDateString()}.</li>
+        `).join('');
+    } catch(e) {}
 }
 
 function listenToRealtimeChanges() {
-    supabaseClient
-        .channel('schema-db-changes')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'historial_premios' }, () => {
-            loadGlobalCounters();
-        })
-        .subscribe();
+    try {
+        supabaseClient
+            .channel('schema-db-changes')
+            .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'historial_premios' }, () => {
+                loadGlobalCounters();
+            })
+            .subscribe();
+    } catch(e) {}
 }
