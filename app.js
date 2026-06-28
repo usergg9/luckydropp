@@ -33,7 +33,7 @@ const TABLA_PREMIOS_LOCAL = [
     { id: 3, nombre: "🪙 Moneda de la Fortuna", rareza: "Raro", probabilidad: 15.0 },
     { id: 4, nombre: "🪲 Escarabajo Sagrado", rareza: "Raro", probabilidad: 9.0 },
     { id: 5, nombre: "👁️ Ojo de Horus", rareza: "Épico", probabilidad: 4.5 },
-    { id: 6, font: "🪶 Atrapasueños Ancestral", nombre: "🪶 Atrapasueños", rareza: "Épico", probabilidad: 1.4 },
+    { id: 6, nombre: "🪶 Atrapasueños Ancestral", rareza: "Épico", probabilidad: 1.4 },
     { id: 7, nombre: "🐱 Maneki-Neko de Oro", rareza: "Legendario", probabilidad: 0.1 }
 ];
 
@@ -139,18 +139,15 @@ async function prepareNextPrize() {
     initCanvas();
     gamePhase = "scratch";
 
-    // Intentamos cargar la lista desde Supabase
     let { data: premios, error } = await supabaseClient.from('premios').select('*');
     
-    // Si la base de datos falla, está vacía o no tiene permisos, usamos la réplica local exacta
     if (error || !premios || premios.length === 0) {
         premios = TABLA_PREMIOS_LOCAL;
     }
 
-    // Algoritmo de selección por peso aleatorio (Matemática Real)
     const random = Math.random() * 100;
     let acumulado = 0;
-    currentPrize = premios[0]; // Por si acaso
+    currentPrize = premios[0]; 
 
     for (let premio of premios) {
         acumulado += premio.probabilidad;
@@ -160,14 +157,12 @@ async function prepareNextPrize() {
         }
     }
 
-    // Renderizado dinámico en la tarjeta
     secretPrizeEl.querySelector('.prize-rarity').textContent = currentPrize.rareza.toUpperCase();
     secretPrizeEl.querySelector('.prize-rarity').className = `prize-rarity rarity-${currentPrize.rareza.toLowerCase()}`;
     secretPrizeEl.querySelector('.prize-name').textContent = currentPrize.nombre;
 }
 
 function generateRandomPrizeLocal() {
-    // Primera carga usa el algoritmo aleatorio basado en peso
     const random = Math.random() * 100;
     let acumulado = 0;
     currentPrize = TABLA_PREMIOS_LOCAL[0];
@@ -308,7 +303,6 @@ async function handleAuthSubmit(e) {
         const { data, error } = await supabaseClient.auth.signUp({ email, password });
         
         if (error) {
-            // Captura el límite de velocidad por IP de Supabase
             if (error.status === 429) {
                 return alert("🛑 Seguridad: Has creado demasiadas cuentas seguidas. Por favor, espera unos minutos o cambia el límite de 'Rate Limits' en el panel de control de Supabase.");
             }
@@ -354,7 +348,7 @@ async function handleUserLogin(user) {
 
     await checkAndLoadDailyAttempts(user.id);
     loadMyPrizes();
-    prepareNextPrize();
+    await prepareNextPrize(); // Inicialización única y segura tras el login
 }
 
 // ==========================================================================
@@ -533,5 +527,3 @@ function listenToRealtimeChanges() {
         })
         .subscribe();
 }
-
-prepareNextPrize();
