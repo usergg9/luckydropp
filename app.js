@@ -65,7 +65,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ==========================================================================
-// CANVAS OPTIMIZADO (RE-RASCABLE)
+// CANVAS OPTIMIZADO
 // ==========================================================================
 function initCanvas() {
     canvas.width = canvas.getBoundingClientRect().width || 360;
@@ -144,7 +144,7 @@ function checkScratchPercentage() {
 }
 
 // ==========================================================================
-// SELECCIÓN MATEMÁTICA DE PREMIOS SEGÚN PROBABILIDADES
+// SELECCIÓN DE PREMIOS SEGÚN PROBABILIDADES
 // ==========================================================================
 async function prepareNextPrize() {
     initCanvas();
@@ -191,28 +191,30 @@ function generateRandomPrizeLocal() {
 }
 
 // ==========================================================================
-// GESTIÓN DE VIDAS DIARIAS CON BLOQUEO PERSISTENTE (24 HORAS REALES)
+// GESTIÓN DE VIDAS DIARIAS (CORREGIDOS ERRORES 406 Y 400 DE LA API)
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
     try {
         let { data, error } = await supabaseClient
             .from('intentos_diarios')
-            .select('*')
-            .eq('user_id', userId)
-            .single();
+            .select()
+            .eq('user_id', userId);
 
-        if (error && error.code === 'PGRST116') {
-            const { data: nuevaFila } = await supabaseClient
+        let registro = data && data.length > 0 ? data[0] : null;
+
+        if (!registro) {
+            const { data: nuevaFila, error: insertError } = await supabaseClient
                 .from('intentos_diarios')
-                .insert([{ user_id: userId, intentos_restantes: 3, bloqueado_hasta: null }])
-                .select()
-                .single();
-            data = nuevaFila;
+                .insert({ user_id: userId, intentos_restantes: 3, bloqueado_hasta: null })
+                .select();
+            
+            if (!insertError && nuevaFila) {
+                registro = nuevaFila[0];
+            }
         }
 
-        if (data) {
-            if (data.bloqueado_hasta && new Date() > new Date(data.bloqueado_hasta)) {
-                // El plazo de bloqueo ya expiró, reseteamos las vidas a 3 de forma segura
+        if (registro) {
+            if (registro.bloqueado_hasta && new Date() > new Date(registro.bloqueado_hasta)) {
                 await supabaseClient
                     .from('intentos_diarios')
                     .update({ intentos_restantes: 3, bloqueado_hasta: null })
@@ -220,11 +222,13 @@ async function checkAndLoadDailyAttempts(userId) {
                 attemptsLeft = 3;
                 timeUnlock = null;
             } else {
-                attemptsLeft = data.intentos_restantes;
-                timeUnlock = data.bloqueado_hasta ? new Date(data.bloqueado_hasta) : null;
+                attemptsLeft = registro.intentos_restantes;
+                timeUnlock = registro.bloqueado_hasta ? new Date(registro.bloqueado_hasta) : null;
             }
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error("Error cargando intentos:", e);
+    }
 
     updateAttemptsUI();
 }
@@ -315,7 +319,7 @@ async function claimPrize() {
 }
 
 // ==========================================================================
-// CONTROL DE ACCESOS
+// CONTROL DE ACCESOS Y PERSISTENCIA COMPLETA DEL AVATAR
 // ==========================================================================
 async function handleAuthSubmit(e) {
     e.preventDefault();
@@ -346,24 +350,33 @@ async function handleAuthSubmit(e) {
 async function handleUserLogin(user) {
     currentUser = user;
     
-    let perfil = { username: user.email.split('@')[0], avatar_url: '👤' };
+    let perfil = { username: user.email.split('@')[0], avatar_url: '🦊' }; 
+    
     try {
-        let { data } = await supabaseClient.from('usuarios').select('*').eq('id', user.id).single();
-        if (data) perfil = data;
-    } catch(e) {}
+        let { data, error } = await supabaseClient
+            .from('usuarios')
+            .select()
+            .eq('id', user.id);
+            
+        if (!error && data && data.length > 0) {
+            perfil = data[0]; 
+        }
+    } catch(e) {
+        console.error("Error cargando perfil:", e);
+    }
 
     currentUser.username = perfil.username;
-    currentUser.avatar_url = perfil.avatar_url;
+    currentUser.avatar_url = perfil.avatar_url || '🦊'; 
 
     document.getElementById('auth-logged-out').classList.add('hidden');
     document.getElementById('auth-logged-in').classList.remove('hidden');
-    document.getElementById('display-username').textContent = perfil.username;
-    document.getElementById('user-badge-avatar').textContent = perfil.avatar_url;
-    document.getElementById('current-avatar-emoji').textContent = perfil.avatar_url;
+    document.getElementById('display-username').textContent = currentUser.username;
+    document.getElementById('user-badge-avatar').textContent = currentUser.avatar_url;
+    document.getElementById('current-avatar-emoji').textContent = currentUser.avatar_url;
 
     document.querySelectorAll('.avatar-pick').forEach(p => {
         p.classList.remove('selected');
-        if(p.dataset.avatar === perfil.avatar_url) p.classList.add('selected');
+        if(p.dataset.avatar === currentUser.avatar_url) p.classList.add('selected');
     });
 
     await checkAndLoadDailyAttempts(user.id);
@@ -483,7 +496,6 @@ async function loadGlobalCounters() {
     } catch(e) {}
 }
 
-// NUEVO: Agrupador inteligente de Inventario Acumulado (Historial Total)
 async function loadMyPrizes() {
     const container = document.getElementById('my-prizes-list');
     if (!currentUser) return;
@@ -499,7 +511,6 @@ async function loadMyPrizes() {
             return;
         }
 
-        // Estructuramos los contadores dinámicos mapeando sobre la plantilla maestra
         const contadores = {};
         TABLA_PREMIOS_LOCAL.forEach(p => { contadores[p.nombre] = 0; });
 
@@ -522,7 +533,6 @@ async function loadMyPrizes() {
     } catch(e) {}
 }
 
-// NUEVO: Distribución acumulada comunitaria de los canjes de hoy
 async function loadPrizesTodayList() {
     const list = document.getElementById('prizes-today-list');
     const hoy = new Date().toISOString().split('T')[0];
