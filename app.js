@@ -1,10 +1,10 @@
 // ==========================================================================
-// CONFIGURACIÓN DE SUPABASE (CONEXIÓN CORREGIDA)
+// CONFIGURACIÓN DE SUPABASE
 // ==========================================================================
 const SUPABASE_URL = "https://ybsrkghhgurjgrfukgox.supabase.co";
 const SUPABASE_KEY = "sb_publishable_gxjNTA6NmdNdyt46l11XBg_3NlCFRrX";
 
-// Reutilizamos la instancia global inyectada por el CDN para evitar errores de redeclaración
+// Reutilizamos la instancia global inyectada por el CDN
 supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // ==========================================================================
@@ -29,7 +29,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     initCanvas();
     setupEventListeners();
     
-    // Comprobar sesión existente
+    // Comprobar si hay sesión activa
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
         await handleUserLogin(session.user);
@@ -43,17 +43,15 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 // ==========================================================================
-// LIENZO / CANVAS (RASCA CON EL DEDO / RATÓN)
+// LIENZO / CANVAS (RASCA)
 // ==========================================================================
 function initCanvas() {
     canvas.width = 320;
     canvas.height = 200;
 
-    // Capa Gris
     ctx.fillStyle = '#64748b';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Texto Central
     ctx.fillStyle = '#f8fafc';
     ctx.font = 'bold 20px Segoe UI';
     ctx.textAlign = 'center';
@@ -159,7 +157,7 @@ function generateRandomPrizeLocal() {
 }
 
 // ==========================================================================
-// GESTIÓN DE VIDAS DIARIAS
+// CONTROL DE INTENTOS DIARIOS
 // ==========================================================================
 async function checkAndLoadDailyAttempts(userId) {
     const hoy = new Date().toISOString().split('T')[0];
@@ -202,7 +200,7 @@ function updateAttemptsUI() {
 }
 
 // ==========================================================================
-// CANJEADOS
+// PROCESO DE CANJEAR PREMIO
 // ==========================================================================
 async function claimPrize() {
     if (!currentUser) {
@@ -237,7 +235,7 @@ async function claimPrize() {
 }
 
 // ==========================================================================
-// CUENTA Y AUTENTICACIÓN
+// ENTRADA DE USUARIOS Y LOGIN/REGISTRO MEJORADO
 // ==========================================================================
 async function handleUserLogin(user) {
     currentUser = user;
@@ -261,6 +259,47 @@ async function handleUserLogin(user) {
     prepareNextPrize();
 }
 
+async function handleAuthSubmit(e) {
+    e.preventDefault();
+    const mode = document.getElementById('modal-auth-form').dataset.mode;
+    const email = document.getElementById('input-email').value;
+    const password = document.getElementById('input-password').value;
+    const username = document.getElementById('input-username').value;
+
+    if (mode === 'register') {
+        const { data, error } = await supabase.auth.signUp({ email, password });
+        if (error) return alert("Error al registrarse: " + error.message);
+
+        if (data.user) {
+            const { error: insertError } = await supabase.from('usuarios').insert([
+                { id: data.user.id, username: username, avatar_url: '🦊' }
+            ]);
+
+            if (insertError) console.error("Error en perfil místico:", insertError);
+
+            alert("¡Registro místico completado! Entrando al juego...");
+            
+            const { error: loginError } = await supabase.auth.signInWithPassword({ email, password });
+            if (loginError) {
+                alert("Cuenta lista. Por favor, inicia sesión manualmente.");
+            }
+            window.location.reload(); 
+        }
+    } else {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) return alert("Error de acceso: " + error.message);
+        
+        alert("¡Sesión iniciada con éxito!");
+        window.location.reload(); 
+    }
+
+    document.getElementById('modal-auth-form').style.display = 'none';
+    document.getElementById('modal-profile').style.display = 'none';
+}
+
+// ==========================================================================
+// EVENTOS Y MODALES
+// ==========================================================================
 function setupEventListeners() {
     setupScratchEvents();
 
@@ -329,36 +368,8 @@ function openAuthForm(mode) {
     }
 }
 
-async function handleAuthSubmit(e) {
-    e.preventDefault();
-    const mode = document.getElementById('modal-auth-form').dataset.mode;
-    const email = document.getElementById('input-email').value;
-    const password = document.getElementById('input-password').value;
-    const username = document.getElementById('input-username').value;
-
-    if (mode === 'register') {
-        const { data, error } = await supabase.auth.signUp({ email, password });
-        if (error) return alert("Error al registrarse: " + error.message);
-
-        if (data.user) {
-            await supabase.from('usuarios').insert([
-                { id: data.user.id, username: username, avatar_url: '🦊' }
-            ]);
-            alert("¡Registro exitoso! Ya puedes jugar.");
-            handleUserLogin(data.user);
-        }
-    } else {
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) return alert("Error de acceso: " + error.message);
-        handleUserLogin(data.user);
-    }
-
-    document.getElementById('modal-auth-form').style.display = 'none';
-    document.getElementById('modal-profile').style.display = 'none';
-}
-
 // ==========================================================================
-// CONTADORES Y REALTIME
+// CONTADORES GLOBALES Y TIEMPO REAL
 // ==========================================================================
 async function loadGlobalCounters() {
     const hoy = new Date().toISOString().split('T')[0];
