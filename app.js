@@ -1,8 +1,10 @@
 // === CONFIGURACIÓN DE SUPABASE ===
-const SUPABASE_URL = "https://ybsrkghhgurjgrfukgox.supabase.co"; 
-const SUPABASE_ANON_KEY = "sb_publishable_gxjNTA6NmdNdyt46l11XBg_3NlCFRrX";
+const SUPABASE_URL = "TU_URL_DE_SUPABASE_AQUI"; 
+const SUPABASE_ANON_KEY = "TU_PUBLIC_KEY_ANON_AQUI";
 
-const supabase = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Usamos supabaseClient para evitar el conflicto con el objeto global del navegador
+const supabaseClient = Supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const supabase = supabaseClient; 
 
 // === ESTADO DEL JUEGO ===
 let currentUser = null;
