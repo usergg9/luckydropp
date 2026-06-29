@@ -34,6 +34,7 @@
     </header>
 
     <main class="game-container">
+        
         <div class="status-bar">
             <span class="status-title">Vidas Disponibles</span>
             <div class="attempts-container">
@@ -58,6 +59,7 @@
                 <span>Rasca el panel gris</span>
             </button>
         </div>
+
     </main>
 
     <footer>
@@ -88,11 +90,12 @@
 
     <div id="modal-profile" class="modal">
         <div class="modal-content">
-            <span class="close-btn" id="close-profile-btn">&times;</span>
+            <span class="close-btn" id="close-profile">&times;</span>
             <div class="modal-header">
                 <h2>Panel de Control</h2>
                 <p class="subtitle">Gestiona tu fortuna en tiempo real</p>
             </div>
+            
             <div class="profile-grid">
                 <div class="profile-card auth-card">
                     <div id="auth-logged-out">
@@ -114,6 +117,7 @@
                         <button id="btn-logout" class="danger-btn">Desconectarse</button>
                     </div>
                 </div>
+
                 <div class="profile-card">
                     <h3>Identidad Mística</h3>
                     <p class="card-desc">Cambia tu avatar en cualquier momento:</p>
@@ -130,9 +134,12 @@
                         <span class="avatar-pick" data-avatar="🐉">🐉</span>
                     </div>
                 </div>
+
                 <div class="profile-card wide-card">
                     <h3>🎒 Tu Inventario Acumulado de Amuletos</h3>
-                    <div id="my-prizes-list" class="prizes-grid"></div>
+                    <div id="my-prizes-list" class="prizes-grid">
+                        <p class="empty-msg">Inicia sesión para ver tus amuletos recolectados.</p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -140,7 +147,7 @@
 
     <div id="modal-auth-form" class="modal sub-modal">
         <div class="modal-content compact-modal">
-            <span class="close-auth-form-btn">&times;</span>
+            <span class="close-btn" id="close-auth">&times;</span>
             <h2 id="auth-form-title">Autenticación</h2>
             <form id="auth-form">
                 <div id="username-field" class="form-group hidden">
@@ -162,21 +169,29 @@
 
     <div id="modal-prizes-today" class="modal">
         <div class="modal-content">
-            <span class="close-prizes-today-btn">&times;</span>
+            <span class="close-btn" id="close-prizes">&times;</span>
             <div class="modal-header">
                 <h2>Distribución de Canjes de Hoy</h2>
+                <p class="subtitle">Total global acumulado de amuletos invocados en las últimas 24 horas</p>
             </div>
-            <ul id="prizes-today-list" class="live-list custom-summary-list"></ul>
+            <div class="prizes-summary-box">
+                <ul id="prizes-today-list" class="live-list custom-summary-list">
+                    <li>Calculando estadísticas de la comunidad...</li>
+                </ul>
+            </div>
         </div>
     </div>
 
     <div id="modal-legendary" class="modal">
         <div class="modal-content">
-            <span class="close-legendary-btn">&times;</span>
+            <span class="close-btn" id="close-legendary">&times;</span>
             <div class="modal-header">
                 <h2>Salón del 0.1%</h2>
+                <p class="subtitle">Invocadores del legendario Maneki-Neko de Oro</p>
             </div>
-            <ul id="legendary-winners-list" class="live-list legendary-list"></ul>
+            <ul id="legendary-winners-list" class="live-list legendary-list">
+                <li>Esperando registros divinos...</li>
+            </ul>
         </div>
     </div>
 
